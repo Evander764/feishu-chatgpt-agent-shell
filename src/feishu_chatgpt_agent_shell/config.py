@@ -59,6 +59,7 @@ class Settings:
     chatgpt_browser_executable: str
     chatgpt_cdp_port: int
     chatgpt_run_mode: str
+    chatgpt_restore_front_app: bool
     chatgpt_close_after_job: bool
     chatgpt_wait_seconds: int
     chatgpt_web_extraction_authorized: bool
@@ -112,6 +113,9 @@ def load_settings(env_file: str = ".env") -> Settings:
         chatgpt_browser_executable=_get("CHATGPT_BROWSER_EXECUTABLE", "", dotenv),
         chatgpt_cdp_port=_int(_get("CHATGPT_CDP_PORT", "9227", dotenv), 9227, 1, 65535),
         chatgpt_run_mode=run_mode,
+        chatgpt_restore_front_app=_bool(
+            _get("CHATGPT_RESTORE_FRONT_APP", "true", dotenv), True
+        ),
         chatgpt_close_after_job=_bool(_get("CHATGPT_CLOSE_AFTER_JOB", "true", dotenv), True),
         chatgpt_wait_seconds=_int(_get("CHATGPT_WAIT_SECONDS", "240", dotenv), 240, 30, 1800),
         chatgpt_web_extraction_authorized=_bool(
@@ -129,4 +133,3 @@ def load_settings(env_file: str = ".env") -> Settings:
         vision_model=_get("VISION_MODEL", "gpt-4.1-mini", dotenv),
         data_dir=Path(_get("DATA_DIR", "./data", dotenv)).expanduser(),
     )
-

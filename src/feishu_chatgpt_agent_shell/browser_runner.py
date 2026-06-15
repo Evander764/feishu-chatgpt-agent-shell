@@ -8,7 +8,7 @@ import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Union
 from urllib.parse import quote
 
 import httpx
@@ -24,6 +24,22 @@ class DownloadedImage:
     width: int
     height: int
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class FrontmostAppSnapshot:
+    app_name: str = ""
+    chromium_window_id: Optional[int] = None
+
+
+CHROMIUM_APP_NAMES = {
+    "Arc",
+    "Brave Browser",
+    "Chromium",
+    "Google Chrome",
+    "Google Chrome Canary",
+    "Microsoft Edge",
+}
 
 
 def wrap_image_prompt(prompt: str, image_count: int) -> str:
@@ -69,6 +85,7 @@ class ChatGPTWebRunner:
             return downloaded
 
     def open_for_login(self) -> None:
+        original_app = self._frontmost_app_snapshot()
         profile = self.settings.chatgpt_browser_profile_dir
         profile.mkdir(parents=True, exist_ok=True)
         chrome = self._find_browser()
@@ -86,13 +103,15 @@ class ChatGPTWebRunner:
                 url,
             ]
         )
+        time.sleep(0.75)
+        self._restore_frontmost_app(original_app)
 
     def _run_one_group(
         self,
         index: int,
         group: PromptGroup,
         prompt: str,
-        original_app: str,
+        original_app: FrontmostAppSnapshot,
     ) -> List[DownloadedImage]:
         target = self._new_target(self.settings.chatgpt_project_url)
         self._restore_frontmost_app(original_app)
@@ -147,8 +166,8 @@ class ChatGPTWebRunner:
             if self.settings.chatgpt_close_after_job and target.get("id"):
                 self._close_target(str(target["id"]))
 
-    def _launch(self) -> str:
-        original_app = self._frontmost_app_name() if self.settings.chatgpt_run_mode == "silent" else ""
+    def _launch(self) -> FrontmostAppSnapshot:
+        original_app = self._frontmost_app_snapshot()
         chrome = self._find_browser()
         profile = self.settings.chatgpt_browser_profile_dir
         profile.mkdir(parents=True, exist_ok=True)
@@ -195,6 +214,17 @@ class ChatGPTWebRunner:
         with contextlib.suppress(Exception):
             httpx.get(f"{base}/json/close/{quote(target_id, safe='')}", timeout=5)
 
+    def _frontmost_app_snapshot(self) -> FrontmostAppSnapshot:
+        if not self.settings.chatgpt_restore_front_app:
+            return FrontmostAppSnapshot()
+        app_name = self._frontmost_app_name()
+        if not app_name:
+            return FrontmostAppSnapshot()
+        return FrontmostAppSnapshot(
+            app_name=app_name,
+            chromium_window_id=self._frontmost_chromium_window_id(app_name),
+        )
+
     def _frontmost_app_name(self) -> str:
         try:
             result = subprocess.run(
@@ -212,13 +242,62 @@ class ChatGPTWebRunner:
             return ""
         return result.stdout.strip() if result.returncode == 0 else ""
 
-    def _restore_frontmost_app(self, app_name: str) -> None:
-        if self.settings.chatgpt_run_mode != "silent" or not app_name.strip():
+    def _frontmost_chromium_window_id(self, app_name: str) -> Optional[int]:
+        if app_name not in CHROMIUM_APP_NAMES:
+            return None
+        escaped = app_name.replace("\\", "\\\\").replace('"', '\\"')
+        try:
+            result = subprocess.run(
+                [
+                    "osascript",
+                    "-e",
+                    (
+                        f'tell application "{escaped}" to '
+                        "if (count of windows) > 0 then get id of front window"
+                    ),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+        except Exception:
+            return None
+        if result.returncode != 0:
+            return None
+        try:
+            return int(result.stdout.strip())
+        except ValueError:
+            return None
+
+    def _restore_frontmost_app(
+        self, snapshot: Union[FrontmostAppSnapshot, str]
+    ) -> None:
+        if not self.settings.chatgpt_restore_front_app:
+            return
+        if isinstance(snapshot, str):
+            app_name = snapshot
+            chromium_window_id = None
+        else:
+            app_name = snapshot.app_name
+            chromium_window_id = snapshot.chromium_window_id
+        if not app_name.strip():
             return
         escaped = app_name.replace("\\", "\\\\").replace('"', '\\"')
+        if chromium_window_id is not None:
+            script = (
+                f'tell application "{escaped}"\n'
+                "  activate\n"
+                "  try\n"
+                f"    set index of (first window whose id is {chromium_window_id}) to 1\n"
+                "  end try\n"
+                "end tell"
+            )
+        else:
+            script = f'tell application "{escaped}" to activate'
         with contextlib.suppress(Exception):
             subprocess.run(
-                ["osascript", "-e", f'tell application "{escaped}" to activate'],
+                ["osascript", "-e", script],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=2,
@@ -373,4 +452,3 @@ def build_generation_expression(prompt: str, timeout_seconds: int) -> str:
   return {{ status: "success", images }};
 }})()
 """
-

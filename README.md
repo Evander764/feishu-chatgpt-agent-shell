@@ -17,6 +17,7 @@
 - Feishu/Lark bot HTTP callback endpoint: `/lark/events`
 - ChatGPT Project web wrapper with isolated Chrome profile
 - `visible` login mode, `silent` off-screen mode, `headless` mode
+- Optional foreground-app restore after opening ChatGPT web
 - One profile lock to prevent concurrent browser-session corruption
 - Prompt groups separated from images per group
 - Local artifact storage and ZIP packaging
@@ -135,4 +136,3 @@ ruff check .
 ## License
 
 MIT
-

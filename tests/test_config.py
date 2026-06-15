@@ -10,6 +10,7 @@ def test_load_settings_from_env_file(tmp_path, monkeypatch):
         "\n".join(
             [
                 "CHATGPT_RUN_MODE=visible",
+                "CHATGPT_RESTORE_FRONT_APP=false",
                 "DEFAULT_GROUP_COUNT=9",
                 "FEISHU_APP_ID=cli_test",
                 "FEISHU_APP_SECRET=secret",
@@ -21,7 +22,7 @@ def test_load_settings_from_env_file(tmp_path, monkeypatch):
     settings = load_settings(str(env))
 
     assert settings.chatgpt_run_mode == "visible"
+    assert settings.chatgpt_restore_front_app is False
     assert settings.default_group_count == 4
     assert settings.feishu_configured
     assert isinstance(settings.data_dir, Path)
-

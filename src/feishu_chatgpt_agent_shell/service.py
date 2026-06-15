@@ -68,6 +68,7 @@ class AgentService:
                 "project_configured": bool(self.settings.chatgpt_project_url),
                 "profile_dir": str(self.settings.chatgpt_browser_profile_dir),
                 "run_mode": self.settings.chatgpt_run_mode,
+                "restore_front_app": self.settings.chatgpt_restore_front_app,
                 "authorized": self.settings.chatgpt_web_extraction_authorized,
             },
             "planner": {
@@ -86,4 +87,3 @@ class AgentService:
                 "parallel_tabs": self.settings.parallel_tabs,
             },
         }
-

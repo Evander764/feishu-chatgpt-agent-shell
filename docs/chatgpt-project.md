@@ -49,6 +49,16 @@ CHATGPT_RUN_MODE=headless
 
 No visible window. Some sites may not render authenticated inputs correctly in headless mode, so test before relying on it.
 
+## Foreground Restore
+
+By default, the template switches focus back to the app you were using after it opens ChatGPT:
+
+```env
+CHATGPT_RESTORE_FRONT_APP=true
+```
+
+This also applies to `setup-chatgpt`, so the login window can open without taking over your desktop. If you want the browser to stay in front while debugging, set it to `false`.
+
 ## Authorization Gate
 
 Web output extraction is disabled by default:
@@ -58,4 +68,3 @@ CHATGPT_WEB_EXTRACTION_AUTHORIZED=false
 ```
 
 Only set it to `true` when you have confirmed you are allowed to programmatically download your own ChatGPT web output.
-
